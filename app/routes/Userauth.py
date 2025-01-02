@@ -1,6 +1,8 @@
 from fastapi.security import HTTPBearer
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.schemas.UserSchemas import Token, UserCreate, User,Userlogin
+from fastapi.concurrency import run_in_threadpool
+
+from app.schemas.UserSchemas import Token, UserCreate, User, Userlogin
 from app.models.user import User as UserModel
 from app.database import users_collection
 from app.jwthandler import (
@@ -10,7 +12,7 @@ from app.jwthandler import (
     SECRET_KEY,
     ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from jose import JWTError,jwt
+from jose import JWTError, jwt
 from datetime import timedelta
 
 router = APIRouter()
@@ -18,7 +20,7 @@ router = APIRouter()
 bearer_scheme = HTTPBearer()
 
 async def get_user(username: str):
-    user_dict = await users_collection.find_one({"username": username})
+    user_dict = await run_in_threadpool(users_collection.find_one, {"username": username})
     if user_dict:
         return UserModel(**user_dict)
 
@@ -45,7 +47,7 @@ async def get_current_user(access_token: str = Depends(bearer_scheme)):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = await users_collection.find_one({"username": username})
+    user = await run_in_threadpool(users_collection.find_one, {"username": username})
     if user is None:
         raise credentials_exception
     return user
@@ -53,7 +55,7 @@ async def get_current_user(access_token: str = Depends(bearer_scheme)):
 @router.post("/token", response_model=Token)
 async def login_for_access_token(login_data: Userlogin):
     # Fetch the user from MongoDB
-    user_dict = await users_collection.find_one({"email": login_data.email})
+    user_dict = await run_in_threadpool(users_collection.find_one, {"email": login_data.email})
     if not user_dict:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -76,14 +78,13 @@ async def login_for_access_token(login_data: Userlogin):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-
 @router.post("/register", response_model=User)
 async def register_user(user: UserCreate):
     hashed_password = get_password_hash(user.password)
     user_dict = user.dict()
     user_dict["hashed_password"] = hashed_password
     user_dict.pop("password")
-    await users_collection.insert_one(user_dict)
+    await run_in_threadpool(users_collection.insert_one, user_dict)  # Correct usage
     return user_dict
 
 @router.get("/users/me", response_model=User)

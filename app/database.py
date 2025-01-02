@@ -21,4 +21,4 @@ users_collection = db["users"]
 order_collection = db["orders"]
 
 # Test the connection
-ping_server()
+# ping_server()
