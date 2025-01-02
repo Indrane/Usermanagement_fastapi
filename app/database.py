@@ -5,7 +5,7 @@ from pymongo.server_api import ServerApi
 MONGO_CONNECTION_STRING = "mongodb+srv://indraneelshinde002:brightinfonet@cluster0.sgilo.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
 # Initialize MongoDB client
-client = MongoClient(MONGO_CONNECTION_STRING, server_api=ServerApi('1'))
+client = MongoClient(MONGO_CONNECTION_STRING, server_api=ServerApi('1'),tls=False)
 
 # Test the connection
 def ping_server():
