@@ -12,7 +12,7 @@ from app.jwthandler import (
     SECRET_KEY,
     ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from jose import JWTError, jwt
+import jwt
 from datetime import timedelta
 
 router = APIRouter()
@@ -45,8 +45,12 @@ async def get_current_user(access_token: str = Depends(bearer_scheme)):
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user = await run_in_threadpool(users_collection.find_one, {"username": username})
     if user is None:
         raise credentials_exception
