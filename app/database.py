@@ -18,3 +18,4 @@ async def ping_server():
 # Database and collections
 db = client["brightinfonet"]
 users_collection = db["users"]
+order_collection = db["orders"]
