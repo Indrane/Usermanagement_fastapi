@@ -19,6 +19,7 @@ def ping_server():
 db = client["brightinfonet"]
 users_collection = db["users"]
 order_collection = db["orders"]
-
+refresh_tokens_collection = db["refresh_tokens"]
+blacklisted_tokens_collection = db["blacklisted_tokens"]
 # Test the connection
 # ping_server()
