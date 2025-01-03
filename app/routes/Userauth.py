@@ -25,13 +25,11 @@ router = APIRouter()
 
 bearer_scheme = HTTPBearer()
 
-
 # Helper functions
 async def get_user(username: str):
     user_dict = await run_in_threadpool(users_collection.find_one, {"username": username})
     if user_dict:
         return UserModel(**user_dict)
-
 
 async def authenticate_user(username: str, password: str):
     user = await get_user(username)
@@ -40,7 +38,6 @@ async def authenticate_user(username: str, password: str):
     if not verify_password(password, user.hashed_password):
         return False
     return user
-
 
 async def get_current_user(access_token: str = Depends(bearer_scheme)):
     credentials_exception = HTTPException(
@@ -69,7 +66,6 @@ async def get_current_user(access_token: str = Depends(bearer_scheme)):
     if user is None:
         raise credentials_exception
     return user
-
 
 # Login endpoint with refresh token
 @router.post("/token", response_model=Token)
@@ -113,7 +109,6 @@ async def login_for_access_token(login_data: Userlogin):
 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
-
 # Logout endpoint to blacklist token and revoke refresh token
 @router.post("/logout")
 async def logout(access_token: str = Depends(bearer_scheme)):
@@ -126,12 +121,10 @@ async def logout(access_token: str = Depends(bearer_scheme)):
 
         # Blacklist the access token
         if jti:
-            await run_in_threadpool(blacklisted_tokens_collection.insert_one,
-                                    {"jti": jti, "revoked_at": datetime.utcnow()})
+            await run_in_threadpool(blacklisted_tokens_collection.insert_one, {"jti": jti, "revoked_at": datetime.utcnow()})
 
         # Revoke the refresh token
-        await run_in_threadpool(refresh_tokens_collection.update_many, {"username": username},
-                                {"$set": {"revoked": True}})
+        await run_in_threadpool(refresh_tokens_collection.update_many, {"username": username}, {"$set": {"revoked": True}})
 
     except Exception as e:
         raise HTTPException(
@@ -140,12 +133,11 @@ async def logout(access_token: str = Depends(bearer_scheme)):
         )
     return {"detail": "User logged out successfully"}
 
-
 # Refresh token endpoint
 @router.post("/refresh")
 async def refresh_token(
-        refresh_token: str,
-        current_user: User = Depends(get_current_user)  # Require authentication
+    refresh_token: str,
+    current_user: User = Depends(get_current_user)  # Require authentication
 ):
     """
     Refresh the access token using a valid refresh token.
@@ -154,8 +146,7 @@ async def refresh_token(
     try:
         # Check if the refresh token is valid
         refresh_token_data = await run_in_threadpool(refresh_tokens_collection.find_one, {"token": refresh_token})
-        if not refresh_token_data or refresh_token_data["revoked"] or refresh_token_data[
-            "expires_at"] < datetime.utcnow():
+        if not refresh_token_data or refresh_token_data["revoked"] or refresh_token_data["expires_at"] < datetime.utcnow():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired refresh token",
@@ -182,21 +173,15 @@ async def refresh_token(
             detail=f"Error during token refresh: {str(e)}",
         )
 
-
 # Register endpoint (unchanged)
 @router.post("/register", response_model=User)
 async def register_user(user: UserCreate):
-    user_dict = await run_in_threadpool(users_collection.find_one, {"email": user.email})
-    if user_dict:
-        raise HTTPException(status_code=403,detail="User already exists")
-
     hashed_password = get_password_hash(user.password)
     user_dict = user.dict()
     user_dict["hashed_password"] = hashed_password
     user_dict.pop("password")  # Remove the plain password
     await run_in_threadpool(users_collection.insert_one, user_dict)
     return user_dict
-
 
 # Get all users endpoint
 @router.get("/users", response_model=List[User])
@@ -206,21 +191,16 @@ async def get_all_users(current_user: User = Depends(get_current_user)):
     Only accessible with a valid access token.
     """
     try:
-        if current_user["role"] != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Permission denied. Admin access required."
-            )
         # Fetch all users from the database
         users = await run_in_threadpool(users_collection.find, {})
-
+        
         # Convert MongoDB cursor to a list of dictionaries
         user_list = []
         for user in users:
             user["_id"] = str(user["_id"])  # Convert ObjectId to string
             user.pop("hashed_password")  # Exclude hashed password from the response
             user_list.append(user)
-
+        
         return user_list
     except Exception as e:
         print(f"Error fetching users: {str(e)}")
@@ -229,29 +209,21 @@ async def get_all_users(current_user: User = Depends(get_current_user)):
             detail="An error occurred while fetching users",
         )
 
-
 # Me endpoint (unchanged)
 @router.get("/users/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
-
 @router.post("/users/reset-password")
 async def reset_password(
-        current_password: str,
-        new_password: str,
-        current_user: User = Depends(get_current_user)
+    current_password: str,
+    new_password: str,
+    current_user: User = Depends(get_current_user)
 ):
     """
     Reset a user's password by verifying the current password.
     """
     try:
-        if current_user["role"] != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Permission denied. Admin access required."
-            )
-
         # Verify the current password
         user_dict = await run_in_threadpool(users_collection.find_one, {"username": current_user["username"]})
         if not user_dict:
@@ -283,9 +255,9 @@ async def reset_password(
 
 @router.put("/users/{user_id}/update-details")
 async def admin_update_user_details(
-        user_id: str,
-        user_update: User,
-        current_user: User = Depends(get_current_user)
+    user_id: str,
+    user_update: User,
+    current_user: User = Depends(get_current_user)
 ):
     """
     Admin updates any user's profile details by user ID.
@@ -330,11 +302,12 @@ async def admin_update_user_details(
         )
 
 
+
 @router.put("/users/{user_id}/status")
 async def update_user_status(
-        user_id: str,
-        disabled: bool,
-        current_user: User = Depends(get_current_user)
+    user_id: str,
+    disabled: bool,
+    current_user: User = Depends(get_current_user)
 ):
     """
     Enable or disable a user's account by user ID.
